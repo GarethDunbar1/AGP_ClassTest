@@ -29,7 +29,8 @@ GLuint gouraudShaderProgram;
 GLuint textureProgram;
 GLuint skyboxProgram;
 GLuint enviromentMapProgram;
-
+GLuint refractionProgram;
+ 
 
 GLfloat r = 0.0f;
 
@@ -240,7 +241,17 @@ void init(void) {
 	uniformIndex = glGetUniformLocation(enviromentMapProgram, "attQuadratic");
 	glUniform1f(uniformIndex, attQuadratic);
 	
-
+	//refraction
+	refractionProgram = rt3d::initShaders("phong-refraction.vert", "phong-refraction.frag");
+	rt3d::setLight(refractionProgram, light0);
+	rt3d::setMaterial(refractionProgram, material0);
+	// set light attenuation shader uniforms
+	uniformIndex = glGetUniformLocation(refractionProgram, "attConst");
+	glUniform1f(uniformIndex, attConstant);
+	uniformIndex = glGetUniformLocation(refractionProgram, "attLinear");
+	glUniform1f(uniformIndex, attLinear);
+	uniformIndex = glGetUniformLocation(refractionProgram, "attQuadratic");
+	glUniform1f(uniformIndex, attQuadratic);
 	
 
 	textureProgram = rt3d::initShaders("textured.vert", "textured.frag");
@@ -317,6 +328,7 @@ void update(void) {
 	if (keys[SDL_SCANCODE_2]) controlShaders = 2;
 	if (keys[SDL_SCANCODE_3]) controlShaders = 3;
 	if (keys[SDL_SCANCODE_4]) controlShaders = 4;
+	if (keys[SDL_SCANCODE_5]) controlShaders = 5;
 }
 
 void drawToonBunny(glm::vec4 tmp, glm::mat4 projection) {
@@ -389,6 +401,39 @@ void drawReflectedBunny(glm::vec4 tmp, glm::mat4 projection) {
 	mvStack.pop();
 	mvStack.pop();
 }
+
+void drawRefractedBunny(glm::vec4 tmp, glm::mat4 projection) {
+	// Now bind textures to texture units
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, skybox[0]);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textures[0]);
+	glUseProgram(refractionProgram);
+	rt3d::setUniformMatrix4fv(refractionProgram, "projection", glm::value_ptr(projection));
+	rt3d::setLightPos(refractionProgram, glm::value_ptr(tmp));
+	//glBindTexture(GL_TEXTURE_2D, textures[2]);
+	mvStack.push(mvStack.top());
+	mvStack.top() = glm::translate(mvStack.top(), glm::vec3(-4.0f, 0.1f, -2.0f));
+	mvStack.top() = glm::scale(mvStack.top(), glm::vec3(20.0f, 20.0f, 20.0f));
+	rt3d::setUniformMatrix4fv(refractionProgram, "modelview", glm::value_ptr(mvStack.top()));
+	rt3d::setMaterial(refractionProgram, material1);
+
+	glm::mat4 modelMatrix(1.0);
+	mvStack.push(mvStack.top());
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(-4.0f, 0.1f, -2.0f));
+	modelMatrix = glm::scale(modelMatrix, glm::vec3(20.0f, 20.0f, 20.0f));
+	mvStack.top() = mvStack.top() * modelMatrix;
+	rt3d::setUniformMatrix4fv(refractionProgram, "modelMatrix", glm::value_ptr(modelMatrix));
+
+	GLuint uniformIndex = glGetUniformLocation(refractionProgram, "cameraPos");
+	glUniform3fv(uniformIndex, 1, glm::value_ptr(eye));
+
+	rt3d::drawIndexedMesh(meshObjects[2], toonIndexCount, GL_TRIANGLES);
+
+	mvStack.pop();
+	mvStack.pop();
+}
+
 void draw(SDL_Window * window) {
 	// clear the screen
 	glEnable(GL_CULL_FACE);
@@ -489,6 +534,7 @@ void draw(SDL_Window * window) {
 	if (controlShaders == 2) drawPhongBunny(tmp, projection);
 	if (controlShaders == 3) drawGouraudBunny(tmp, projection);
 	if (controlShaders == 4) drawReflectedBunny(tmp, projection);
+	if (controlShaders == 5) drawRefractedBunny(tmp, projection);
 
 	// remember to use at least one pop operation per push...
 	mvStack.pop(); // initial matrix

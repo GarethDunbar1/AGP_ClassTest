@@ -160,6 +160,8 @@
     <None Include="cubeMap.vert" />
     <None Include="phong-enviromentMap.frag" />
     <None Include="phong-enviromentMap.vert" />
+    <None Include="phong-refraction.frag" />
+    <None Include="phong-refraction.vert" />
     <None Include="phong-tex.frag" />
     <None Include="phong-tex.vert" />
     <None Include="textured.frag" />
