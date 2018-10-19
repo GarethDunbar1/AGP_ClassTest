@@ -158,6 +158,8 @@
   <ItemGroup>
     <None Include="cubeMap.frag" />
     <None Include="cubeMap.vert" />
+    <None Include="phong-enviromentMap.frag" />
+    <None Include="phong-enviromentMap.vert" />
     <None Include="phong-tex.frag" />
     <None Include="phong-tex.vert" />
     <None Include="textured.frag" />

@@ -28,6 +28,7 @@ GLuint toonShaderProgram;
 GLuint gouraudShaderProgram;
 GLuint textureProgram;
 GLuint skyboxProgram;
+GLuint enviromentMapProgram;
 
 
 GLfloat r = 0.0f;
@@ -227,6 +228,21 @@ void init(void) {
 	uniformIndex = glGetUniformLocation(gouraudShaderProgram, "attQuadratic");
 	glUniform1f(uniformIndex, attQuadratic);
 
+	//enviroment mapping (reflection)
+	enviromentMapProgram = rt3d::initShaders("phong-enviromentMap.vert", "phong-enviromentMap.frag");
+	rt3d::setLight(enviromentMapProgram, light0);
+	rt3d::setMaterial(enviromentMapProgram, material0);
+	// set light attenuation shader uniforms
+	uniformIndex = glGetUniformLocation(enviromentMapProgram, "attConst");
+	glUniform1f(uniformIndex, attConstant);
+	uniformIndex = glGetUniformLocation(enviromentMapProgram, "attLinear");
+	glUniform1f(uniformIndex, attLinear);
+	uniformIndex = glGetUniformLocation(enviromentMapProgram, "attQuadratic");
+	glUniform1f(uniformIndex, attQuadratic);
+	
+
+	
+
 	textureProgram = rt3d::initShaders("textured.vert", "textured.frag");
 	skyboxProgram = rt3d::initShaders("cubeMap.vert", "cubeMap.frag");
 
@@ -257,16 +273,12 @@ void init(void) {
 
 	// Binding tex handles to tex units to samplers under programmer control
 	// set cubemap sampler to texture unit 1, arbitrarily
-	uniformIndex = glGetUniformLocation(textureProgram, "cubeMap");
+	uniformIndex = glGetUniformLocation(enviromentMapProgram, "cubeMap");
 	glUniform1i(uniformIndex, 1);
 	// set tex sampler to texture unit 0, arbitrarily
-	uniformIndex = glGetUniformLocation(textureProgram, "texMap");
+	uniformIndex = glGetUniformLocation(enviromentMapProgram, "texMap");
 	glUniform1i(uniformIndex, 0);
-	// Now bind textures to texture units
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, skybox[0]);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, textures[2]);	
+
 }
 
 glm::vec3 moveForward(glm::vec3 pos, GLfloat angle, GLfloat d) {
@@ -297,13 +309,14 @@ void update(void) {
 	if (keys[SDL_SCANCODE_RSHIFT]) lightPos[1] -= 0.1; //move light down
 
 	//Camera Rotation
-	if (keys[SDL_SCANCODE_COMMA]) r -= 1.0f;
-	if (keys[SDL_SCANCODE_PERIOD]) r += 1.0f;
+	if (keys[SDL_SCANCODE_COMMA]) r -= 0.09f;
+	if (keys[SDL_SCANCODE_PERIOD]) r += 0.09f;
 
 	//Shader Controls
 	if (keys[SDL_SCANCODE_1]) controlShaders = 1;
 	if (keys[SDL_SCANCODE_2]) controlShaders = 2;
 	if (keys[SDL_SCANCODE_3]) controlShaders = 3;
+	if (keys[SDL_SCANCODE_4]) controlShaders = 4;
 }
 
 void drawToonBunny(glm::vec4 tmp, glm::mat4 projection) {
@@ -345,6 +358,37 @@ void drawGouraudBunny(glm::vec4 tmp, glm::mat4 projection) {
 	mvStack.pop();
 }
 
+void drawReflectedBunny(glm::vec4 tmp, glm::mat4 projection) {
+	// Now bind textures to texture units
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, skybox[0]);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textures[0]);
+	glUseProgram(enviromentMapProgram);
+	rt3d::setUniformMatrix4fv(enviromentMapProgram, "projection", glm::value_ptr(projection));
+	rt3d::setLightPos(enviromentMapProgram, glm::value_ptr(tmp));
+	//glBindTexture(GL_TEXTURE_2D, textures[2]);
+	mvStack.push(mvStack.top());
+	mvStack.top() = glm::translate(mvStack.top(), glm::vec3(-4.0f, 0.1f, -2.0f));
+	mvStack.top() = glm::scale(mvStack.top(), glm::vec3(20.0f, 20.0f, 20.0f));
+	rt3d::setUniformMatrix4fv(enviromentMapProgram, "modelview", glm::value_ptr(mvStack.top()));
+	rt3d::setMaterial(enviromentMapProgram, material1);
+
+	glm::mat4 modelMatrix(1.0);
+	mvStack.push(mvStack.top());
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(-4.0f, 0.1f, -2.0f));
+	modelMatrix = glm::scale(modelMatrix, glm::vec3(20.0f, 20.0f, 20.0f));
+	mvStack.top() = mvStack.top() * modelMatrix;
+	rt3d::setUniformMatrix4fv(enviromentMapProgram, "modelMatrix", glm::value_ptr(modelMatrix));
+
+	GLuint uniformIndex = glGetUniformLocation(enviromentMapProgram, "cameraPos");
+	glUniform3fv(uniformIndex, 1, glm::value_ptr(eye));
+	
+	rt3d::drawIndexedMesh(meshObjects[2], toonIndexCount, GL_TRIANGLES);
+
+	mvStack.pop();
+	mvStack.pop();
+}
 void draw(SDL_Window * window) {
 	// clear the screen
 	glEnable(GL_CULL_FACE);
@@ -444,6 +488,7 @@ void draw(SDL_Window * window) {
 	if (controlShaders == 1) drawToonBunny(tmp, projection);
 	if (controlShaders == 2) drawPhongBunny(tmp, projection);
 	if (controlShaders == 3) drawGouraudBunny(tmp, projection);
+	if (controlShaders == 4) drawReflectedBunny(tmp, projection);
 
 	// remember to use at least one pop operation per push...
 	mvStack.pop(); // initial matrix

@@ -76,5 +76,11 @@
     <None Include="cubeMap.vert">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="phong-enviromentMap.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="phong-enviromentMap.frag">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>
